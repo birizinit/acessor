@@ -19,9 +19,11 @@ export default function LoginPage() {
     telefone: "",
     nascimento: "",
     api_token: "",
+    senha: "",
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const router = useRouter()
   const { signIn, signUp } = useAuth()
 
@@ -29,6 +31,7 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError("")
+    setSuccess("")
     
     try {
       const { error } = await signIn(email, password)
@@ -48,12 +51,13 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError("")
+    setSuccess("")
     
     try {
-      // Gerar senha temporária (em produção, o usuário deveria definir sua própria senha)
-      const tempPassword = Math.random().toString(36).slice(-8)
+      // Usar a senha definida pelo usuário
+      const userPassword = formData.senha || Math.random().toString(36).slice(-8)
       
-      const { error } = await signUp(formData.email, tempPassword, {
+      const { error } = await signUp(formData.email, userPassword, {
         nome: formData.nome,
         sobrenome: formData.sobrenome,
         cpf: formData.cpf,
@@ -65,7 +69,7 @@ export default function LoginPage() {
       if (error) {
         setError("Erro ao criar conta: " + error.message)
       } else {
-        setError("Conta criada com sucesso! Verifique seu email para confirmar a conta.")
+        setSuccess("Conta criada com sucesso! Verifique seu email para confirmar a conta.")
         // Limpar formulário
         setFormData({
           nome: "",
@@ -75,6 +79,7 @@ export default function LoginPage() {
           telefone: "",
           nascimento: "",
           api_token: "",
+          senha: "",
         })
       }
     } catch (err) {
@@ -190,6 +195,13 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Success Message */}
+          {success && (
+            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
+              {success}
+            </div>
+          )}
+
           {/* Create Account Form */}
           {activeTab === "criar" && (
             <form onSubmit={handleCreateAccount} className="space-y-5">
@@ -231,6 +243,20 @@ export default function LoginPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="Seu email"
+                  className="w-full px-3 py-3 bg-[#141332] border border-[#2E2D55] rounded-lg text-white placeholder:text-[#7C8198] focus:outline-none focus:border-[#845BF6]"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="senha-cadastro" className="block text-sm text-[#AEABD8] mb-1">
+                  Senha
+                </label>
+                <input
+                  type="password"
+                  id="senha-cadastro"
+                  value={formData.senha}
+                  onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
+                  placeholder="Digite sua senha"
                   className="w-full px-3 py-3 bg-[#141332] border border-[#2E2D55] rounded-lg text-white placeholder:text-[#7C8198] focus:outline-none focus:border-[#845BF6]"
                   required
                 />
