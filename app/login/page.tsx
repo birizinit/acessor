@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function LoginPage() {
   const [activeTab, setActiveTab] = useState<"login" | "criar">("login")
@@ -17,24 +18,69 @@ export default function LoginPage() {
     cpf: "",
     telefone: "",
     nascimento: "",
+    api_token: "",
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
+  const { signIn, signUp } = useAuth()
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulate login - in production, validate credentials
-    if (email && password) {
-      localStorage.setItem("isAuthenticated", "true")
-      router.push("/")
+    setLoading(true)
+    setError("")
+    
+    try {
+      const { error } = await signIn(email, password)
+      if (error) {
+        setError("Email ou senha incorretos")
+      } else {
+        router.push("/")
+      }
+    } catch (err) {
+      setError("Erro ao fazer login")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleCreateAccount = (e: React.FormEvent) => {
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulate account creation
-    if (formData.nome && formData.email) {
-      localStorage.setItem("isAuthenticated", "true")
-      router.push("/")
+    setLoading(true)
+    setError("")
+    
+    try {
+      // Gerar senha temporária (em produção, o usuário deveria definir sua própria senha)
+      const tempPassword = Math.random().toString(36).slice(-8)
+      
+      const { error } = await signUp(formData.email, tempPassword, {
+        nome: formData.nome,
+        sobrenome: formData.sobrenome,
+        cpf: formData.cpf,
+        telefone: formData.telefone,
+        nascimento: formData.nascimento,
+        api_token: formData.api_token || undefined,
+      })
+      
+      if (error) {
+        setError("Erro ao criar conta: " + error.message)
+      } else {
+        setError("Conta criada com sucesso! Verifique seu email para confirmar a conta.")
+        // Limpar formulário
+        setFormData({
+          nome: "",
+          sobrenome: "",
+          email: "",
+          cpf: "",
+          telefone: "",
+          nascimento: "",
+          api_token: "",
+        })
+      }
+    } catch (err) {
+      setError("Erro ao criar conta")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -126,14 +172,22 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 bg-[#845BF6] text-white font-semibold rounded-lg hover:bg-[#6a3fd9] transition-colors"
+                disabled={loading}
+                className="w-full py-3 bg-[#845BF6] text-white font-semibold rounded-lg hover:bg-[#6a3fd9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Acessar
+                {loading ? "Entrando..." : "Acessar"}
               </button>
               <a href="#" className="block text-center text-sm text-[#7C8198] hover:underline mt-4">
                 Esqueci a senha
               </a>
             </form>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
           )}
 
           {/* Create Account Form */}
@@ -223,11 +277,28 @@ export default function LoginPage() {
                   required
                 />
               </div>
+              <div>
+                <label htmlFor="api_token" className="block text-sm text-[#AEABD8] mb-1">
+                  API Token (Opcional)
+                </label>
+                <input
+                  type="text"
+                  id="api_token"
+                  value={formData.api_token}
+                  onChange={(e) => setFormData({ ...formData, api_token: e.target.value })}
+                  placeholder="Seu API token para integração"
+                  className="w-full px-3 py-3 bg-[#141332] border border-[#2E2D55] rounded-lg text-white placeholder:text-[#7C8198] focus:outline-none focus:border-[#845BF6]"
+                />
+                <p className="text-xs text-[#7C8198] mt-1">
+                  Token para integração com APIs externas (ex: Binance, Coinbase)
+                </p>
+              </div>
               <button
                 type="submit"
-                className="w-full py-3 bg-[#845BF6] text-white font-semibold rounded-lg hover:bg-[#6a3fd9] transition-colors"
+                disabled={loading}
+                className="w-full py-3 bg-[#845BF6] text-white font-semibold rounded-lg hover:bg-[#6a3fd9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Criar Conta
+                {loading ? "Criando conta..." : "Criar Conta"}
               </button>
             </form>
           )}
