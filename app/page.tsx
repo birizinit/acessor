@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 import { Header } from "@/components/header"
 import { Filters } from "@/components/filters"
 import { ResultCard } from "@/components/result-card"
@@ -13,7 +14,7 @@ import { ProjectionCard } from "@/components/projection-card"
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const { user, loading } = useAuth()
   const [selectedPeriod, setSelectedPeriod] = useState<"week" | "month" | "today">("month")
 
   const getCurrentMonth = () => {
@@ -58,22 +59,21 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState(getInitialDateRange())
 
   useEffect(() => {
-    const authStatus = localStorage.getItem("isAuthenticated")
-    const apiToken = localStorage.getItem("apiToken")
-
-    if (authStatus !== "true") {
+    if (!loading && !user) {
       router.push("/login")
-    } else {
-      setIsAuthenticated(true)
     }
-  }, [router])
+  }, [user, loading, router])
 
-  if (!isAuthenticated) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#141332] flex items-center justify-center">
         <div className="text-white">Carregando...</div>
       </div>
     )
+  }
+
+  if (!user) {
+    return null
   }
 
   return (

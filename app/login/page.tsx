@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
@@ -25,7 +25,14 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const router = useRouter()
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, user, loading } = useAuth()
+
+  // Redirecionar automaticamente se o usuário já estiver autenticado
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/")
+    }
+  }, [user, loading, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,7 +45,11 @@ export default function LoginPage() {
       if (error) {
         setError("Email ou senha incorretos")
       } else {
-        router.push("/")
+        setSuccess("Login realizado com sucesso! Redirecionando...")
+        // Aguardar um pouco para mostrar a mensagem de sucesso
+        setTimeout(() => {
+          router.push("/")
+        }, 1000)
       }
     } catch (err) {
       setError("Erro ao fazer login")
@@ -69,7 +80,7 @@ export default function LoginPage() {
       if (error) {
         setError("Erro ao criar conta: " + error.message)
       } else {
-        setSuccess("Conta criada com sucesso! Verifique seu email para confirmar a conta.")
+        setSuccess("Conta criada com sucesso! Redirecionando para o login...")
         // Limpar formulário
         setFormData({
           nome: "",
@@ -81,6 +92,11 @@ export default function LoginPage() {
           api_token: "",
           senha: "",
         })
+        // Redirecionar para a aba de login após 2 segundos
+        setTimeout(() => {
+          setActiveTab("login")
+          setSuccess("")
+        }, 2000)
       }
     } catch (err) {
       setError("Erro ao criar conta")
@@ -104,6 +120,15 @@ export default function LoginPage() {
       .replace(/(\d{2})(\d)/, "($1) $2")
       .replace(/(\d{5})(\d)/, "$1-$2")
       .replace(/(-\d{4})\d+?$/, "$1")
+  }
+
+  // Mostrar tela de carregamento enquanto verifica autenticação
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0E0C28] flex items-center justify-center">
+        <div className="text-white">Verificando autenticação...</div>
+      </div>
+    )
   }
 
   return (
