@@ -1,11 +1,9 @@
 [build]
 builder = "NIXPACKS"
-
-[phases.install]
-cmds = ["pnpm install --no-frozen-lockfile"]
-
-[phases.build]
-cmds = ["pnpm run build"]
+buildCommand = "pnpm install --no-frozen-lockfile && pnpm run build"
 
 [start]
 cmd = "pnpm run start"
+
+[variables]
+NIXPACKS_NODE_INSTALL_FLAGS = "--no-frozen-lockfile"
