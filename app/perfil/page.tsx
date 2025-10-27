@@ -11,10 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { MyBrokerAPI, type UserData } from "@/lib/api"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function PerfilPage() {
   const router = useRouter()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const { user, profile, loading: authLoading, updateProfile, uploadAvatar, signOut } = useAuth()
   const [profileImage, setProfileImage] = useState("/assets/Ellipse.svg")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [apiToken, setApiToken] = useState("")
@@ -24,55 +25,28 @@ export default function PerfilPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [moderateProgress, setModerateProgress] = useState(44)
   const [aggressiveProgress, setAggressiveProgress] = useState(0)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   useEffect(() => {
-    const authStatus = localStorage.getItem("isAuthenticated")
-    if (authStatus !== "true") {
+    if (authLoading) return
+
+    if (!user) {
       router.push("/login")
-    } else {
-      setIsAuthenticated(true)
+      return
     }
 
-    const savedImage = localStorage.getItem("profileImage")
-    if (savedImage) {
-      setProfileImage(savedImage)
-    }
-
-    const savedToken = localStorage.getItem("apiToken")
-    if (savedToken) {
-      setApiToken(savedToken)
-      fetchUserData(savedToken).then(() => {
-        // Após buscar dados da API do MyBroker, buscar dados salvos no banco
-        loadFromDatabase()
-      })
-    } else {
-      // Se não tiver token, tentar carregar do banco
-      loadFromDatabase()
-    }
-  }, [router])
-
-  const loadFromDatabase = async () => {
-    try {
-      const email = localStorage.getItem("userEmail") || "user@example.com"
-      
-      const response = await fetch(`/api/user?email=${encodeURIComponent(email)}`)
-      
-      if (response.ok) {
-        const data = await response.json()
-        
-        if (data.profileImage) {
-          setProfileImage(data.profileImage)
-          localStorage.setItem("profileImage", data.profileImage)
-        }
-        
-        if (data.preferences) {
-          console.log("Preferências carregadas:", data.preferences)
-        }
+    // Carregar dados do perfil
+    if (profile) {
+      if (profile.profileImage) {
+        setProfileImage(profile.profileImage)
       }
-    } catch (error) {
-      console.error("Erro ao carregar dados do banco:", error)
+      if (profile.apiToken) {
+        setApiToken(profile.apiToken)
+        fetchUserData(profile.apiToken)
+      }
     }
-  }
+  }, [user, profile, authLoading, router])
+
 
   const fetchUserData = async (token: string) => {
     setIsLoadingUser(true)
@@ -107,77 +81,56 @@ export default function PerfilPage() {
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      setIsUpdating(true)
       try {
-        // Upload para o servidor
-        const formData = new FormData()
-        formData.append("file", file)
-        formData.append("email", userData?.email || "user@example.com")
+        // Upload para Supabase Storage
+        const { data, error } = await uploadAvatar(file)
+        
+        if (error) {
+          console.error("Erro ao fazer upload da imagem:", error)
+          return
+        }
 
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        })
-
-        const data = await response.json()
-
-        if (response.ok) {
-          setProfileImage(data.url)
-          localStorage.setItem("profileImage", data.url)
-
-          // Salvar no banco de dados
-          await saveToDatabase({ profileImage: data.url })
+        if (data?.path) {
+          setProfileImage(data.path)
+          
+          // Atualizar perfil no banco
+          await updateProfile({ profileImage: data.path })
         }
       } catch (error) {
         console.error("Erro ao fazer upload da imagem:", error)
-        // Fallback para localStorage
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const imageUrl = reader.result as string
-          setProfileImage(imageUrl)
-          localStorage.setItem("profileImage", imageUrl)
-        }
-        reader.readAsDataURL(file)
+      } finally {
+        setIsUpdating(false)
       }
     }
   }
 
-  const saveToDatabase = async (data: { profileImage?: string; preferences?: any }) => {
-    try {
-      const email = userData?.email || "user@example.com"
-      
-      const response = await fetch("/api/user", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          ...data,
-        }),
-      })
-
-      if (!response.ok) {
-        console.error("Erro ao salvar no banco de dados")
-      }
-    } catch (error) {
-      console.error("Erro ao salvar no banco de dados:", error)
-    }
-  }
 
   const handleConnect = async () => {
     if (apiToken.trim()) {
-      localStorage.setItem("apiToken", apiToken)
-      await fetchUserData(apiToken)
-      setShowSuccessModal(true)
+      setIsUpdating(true)
+      try {
+        await updateProfile({ apiToken })
+        await fetchUserData(apiToken)
+        setShowSuccessModal(true)
+      } catch (error) {
+        console.error("Erro ao conectar API:", error)
+      } finally {
+        setIsUpdating(false)
+      }
     }
   }
 
-  if (!isAuthenticated) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-[#141332] flex items-center justify-center">
         <div className="text-white">Carregando...</div>
       </div>
     )
+  }
+
+  if (!user) {
+    return null // Será redirecionado pelo useEffect
   }
 
   return (
@@ -222,7 +175,7 @@ export default function PerfilPage() {
                       </svg>
                     </button>
                   </div>
-                  <div className="text-white font-semibold text-lg">{userData?.name || "Pedro Fonseca"}</div>
+                  <div className="text-white font-semibold text-lg">{profile?.fullName || userData?.name || "Usuário"}</div>
                   <div className="text-[#aeabd8] text-sm">{userData?.nickname || "Conservador"}</div>
                   {userData && (
                     <div className="mt-2 text-xs text-[#aeabd8]">
@@ -279,7 +232,7 @@ export default function PerfilPage() {
                   <label className="text-[#aeabd8] text-sm block mb-2">E-mail</label>
                   <Input
                     placeholder="Digite"
-                    defaultValue={userData?.email || ""}
+                    defaultValue={profile?.email || userData?.email || ""}
                     readOnly={!!userData}
                     className="bg-[#141332] border-[#2a2959] text-white h-11"
                   />
@@ -296,7 +249,7 @@ export default function PerfilPage() {
                   <label className="text-[#aeabd8] text-sm block mb-2">Nome</label>
                   <Input
                     placeholder="Digite"
-                    defaultValue={userData?.name || ""}
+                    defaultValue={profile?.fullName || userData?.name || ""}
                     readOnly={!!userData}
                     className="bg-[#141332] border-[#2a2959] text-white h-11"
                   />
@@ -384,12 +337,22 @@ export default function PerfilPage() {
                 <div className="flex items-end">
                   <Button
                     onClick={handleConnect}
-                    disabled={isLoadingUser}
+                    disabled={isLoadingUser || isUpdating}
                     className="w-full h-11 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-medium disabled:opacity-50"
                   >
-                    {isLoadingUser ? "Conectando..." : "Conectar"}
+                    {isLoadingUser || isUpdating ? "Conectando..." : "Conectar"}
                   </Button>
                 </div>
+              </div>
+              
+              {/* Botão de Logout */}
+              <div className="mt-6 pt-6 border-t border-[#2a2959]">
+                <Button
+                  onClick={signOut}
+                  className="w-full h-11 bg-red-600 hover:bg-red-700 text-white font-medium"
+                >
+                  Sair da Conta
+                </Button>
               </div>
             </div>
           </div>

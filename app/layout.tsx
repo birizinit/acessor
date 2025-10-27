@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Roboto, Public_Sans, Poppins } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { AuthProvider } from "@/contexts/AuthContext"
 import "./globals.css"
 
 const roboto = Roboto({
@@ -36,7 +37,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${roboto.variable} ${publicSans.variable} ${poppins.variable} font-sans antialiased`}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

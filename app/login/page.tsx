@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function LoginPage() {
   const [activeTab, setActiveTab] = useState<"login" | "criar">("login")
@@ -18,23 +19,60 @@ export default function LoginPage() {
     telefone: "",
     nascimento: "",
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
+  const { signIn, signUp, user } = useAuth()
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Simulate login - in production, validate credentials
-    if (email && password) {
-      localStorage.setItem("isAuthenticated", "true")
+  // Redirecionar se já estiver logado
+  React.useEffect(() => {
+    if (user) {
       router.push("/")
+    }
+  }, [user, router])
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError("")
+    
+    try {
+      const { error } = await signIn(email, password)
+      if (error) {
+        setError("Email ou senha incorretos")
+      } else {
+        router.push("/")
+      }
+    } catch (err) {
+      setError("Erro ao fazer login")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleCreateAccount = (e: React.FormEvent) => {
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulate account creation
-    if (formData.nome && formData.email) {
-      localStorage.setItem("isAuthenticated", "true")
-      router.push("/")
+    setLoading(true)
+    setError("")
+    
+    try {
+      const { error } = await signUp(formData.email, password, {
+        fullName: `${formData.nome} ${formData.sobrenome}`,
+        phone: formData.telefone,
+        cpf: formData.cpf,
+        birthDate: formData.nascimento,
+      })
+      
+      if (error) {
+        setError("Erro ao criar conta. Verifique os dados e tente novamente.")
+      } else {
+        setError("Conta criada com sucesso! Verifique seu email para confirmar a conta.")
+        setActiveTab("login")
+      }
+    } catch (err) {
+      setError("Erro ao criar conta")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -93,6 +131,13 @@ export default function LoginPage() {
             </button>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-sm">
+              {error}
+            </div>
+          )}
+
           {/* Login Form */}
           {activeTab === "login" && (
             <form onSubmit={handleLogin} className="space-y-5">
@@ -126,9 +171,10 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 bg-[#845BF6] text-white font-semibold rounded-lg hover:bg-[#6a3fd9] transition-colors"
+                disabled={loading}
+                className="w-full py-3 bg-[#845BF6] text-white font-semibold rounded-lg hover:bg-[#6a3fd9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Acessar
+                {loading ? "Entrando..." : "Acessar"}
               </button>
               <a href="#" className="block text-center text-sm text-[#7C8198] hover:underline mt-4">
                 Esqueci a senha
@@ -225,9 +271,10 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 bg-[#845BF6] text-white font-semibold rounded-lg hover:bg-[#6a3fd9] transition-colors"
+                disabled={loading}
+                className="w-full py-3 bg-[#845BF6] text-white font-semibold rounded-lg hover:bg-[#6a3fd9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Criar Conta
+                {loading ? "Criando conta..." : "Criar Conta"}
               </button>
             </form>
           )}
