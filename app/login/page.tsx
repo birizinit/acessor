@@ -25,7 +25,14 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const router = useRouter()
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, user, loading } = useAuth()
+
+  // Redirecionar se já estiver logado
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/")
+    }
+  }, [user, loading, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,7 +76,7 @@ export default function LoginPage() {
       if (error) {
         setError("Erro ao criar conta: " + error.message)
       } else {
-        setSuccess("Conta criada com sucesso! Verifique seu email para confirmar a conta.")
+        setSuccess("Conta criada com sucesso! Redirecionando para o login...")
         // Limpar formulário
         setFormData({
           nome: "",
@@ -81,6 +88,11 @@ export default function LoginPage() {
           api_token: "",
           senha: "",
         })
+        // Redirecionar para a aba de login após 2 segundos
+        setTimeout(() => {
+          setActiveTab("login")
+          setEmail(formData.email) // Preencher o email automaticamente
+        }, 2000)
       }
     } catch (err) {
       setError("Erro ao criar conta")
@@ -104,6 +116,15 @@ export default function LoginPage() {
       .replace(/(\d{2})(\d)/, "($1) $2")
       .replace(/(\d{5})(\d)/, "$1-$2")
       .replace(/(-\d{4})\d+?$/, "$1")
+  }
+
+  // Mostrar loading enquanto verifica autenticação
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0E0C28] flex items-center justify-center">
+        <div className="text-white">Carregando...</div>
+      </div>
+    )
   }
 
   return (
